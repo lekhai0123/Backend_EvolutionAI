@@ -19,28 +19,32 @@ public class AuthController : ControllerBase
         _db = db;
         _cfg = cfg;
     }
-
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] User dto)
+    public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     {
         if (await _db.Users.AnyAsync(u => u.Username == dto.Username))
-            return BadRequest("Username đã tồn tại");
+            return BadRequest("Tên đăng nhập đã tồn tại");
+
+        if (await _db.Users.AnyAsync(u => u.Email == dto.Email))
+            return BadRequest("Email đã được sử dụng");
 
         var user = new User
         {
             Username = dto.Username,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.PasswordHash)
+            Email = dto.Email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password)
         };
 
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
         return Ok("Đăng ký thành công");
     }
-
     [HttpPost("login")]
     public async Task<ActionResult<object>> Login([FromBody] LoginDto dto)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == dto.Username);
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Username == dto.Username || u.Email == dto.Username);
+
         if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
             return Unauthorized("Sai tài khoản hoặc mật khẩu");
 
@@ -51,9 +55,9 @@ public class AuthController : ControllerBase
         {
             Subject = new ClaimsIdentity(new[]
             {
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, user.Role)
-            }),
+            new Claim(ClaimTypes.Name, user.Username),
+            new Claim(ClaimTypes.Role, user.Role)
+        }),
             Expires = DateTime.UtcNow.AddDays(7),
             SigningCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(key),
