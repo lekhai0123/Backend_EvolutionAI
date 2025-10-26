@@ -5,6 +5,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 public class Dish
 {
     public int Id { get; set; }
+    public int? UserId { get; set; }  
+    [ForeignKey(nameof(UserId))]
+    public User? User { get; set; }
 
     [Required, MaxLength(200)]
     public string Name { get; set; } = null!;

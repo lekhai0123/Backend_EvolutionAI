@@ -1,5 +1,6 @@
 ﻿using Backend_Evolution.Data;
 using Backend_Evolution.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -61,6 +62,38 @@ public class AuthController : ControllerBase
 
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return Ok(new { token = tokenHandler.WriteToken(token) });
+    }
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<ActionResult<object>> GetProfile()
+    {
+        var username = User.Identity?.Name;
+        if (username == null) return Unauthorized();
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
+        if (user == null) return NotFound();
+
+        var postCount = await _db.Dishes.CountAsync(d => d.UserId == user.Id);
+
+        // 1) Lượt thích user đã bấm
+        var likesGiven = await _db.Favorites.CountAsync(f => f.UserId == user.Id);
+
+        // 2) Lượt thích nhận được trên tất cả món user đăng
+        var likesReceived = await (from f in _db.Favorites
+                                   join d in _db.Dishes on f.DishId equals d.Id
+                                   where d.UserId == user.Id
+                                   select f.Id).CountAsync();
+
+        return Ok(new
+        {
+            user.Id,
+            user.Username,
+            user.Email,
+            user.Role,
+            PostCount = postCount,
+            LikesGiven = likesGiven,
+            LikesReceived = likesReceived
+        });
     }
 }
 
