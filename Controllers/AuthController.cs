@@ -99,5 +99,15 @@ public class AuthController : ControllerBase
             LikesReceived = likesReceived
         });
     }
+    [Authorize(Roles = "admin")]
+    [HttpGet("admin/users")]
+    public async Task<IActionResult> GetAllUsers()
+    {
+        var users = await _db.Users
+            .Select(u => new { u.Id, u.Username, u.Email, u.Role })
+            .ToListAsync();
+        return Ok(users);
+    }
+
 }
 

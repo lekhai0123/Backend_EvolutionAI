@@ -12,6 +12,6 @@ public class User
     [Required]
     public string PasswordHash { get; set; } = null!;
 
-    public string Role { get; set; } = "user"; // "user" hoặc "admin"
+    public string Role { get; set; } = "user"; 
     public string Email { get; set; } = "";
 }

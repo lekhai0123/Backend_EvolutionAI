@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 public class Dish
 {
     public int Id { get; set; }
-    public int? UserId { get; set; }  
+    public int? UserId { get; set; }
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
 
@@ -13,15 +13,16 @@ public class Dish
     public string Name { get; set; } = null!;
 
     public string? Description { get; set; }
-
     public string? ImageUrl { get; set; }
 
-    // Quan hệ Category chuẩn
-    public int CategoryId { get; set; }   // FK
+    public int CategoryId { get; set; }
     public Category? Category { get; set; }
 
     public string Difficulty { get; set; } = "Medium";
     public int CookingTime { get; set; } = 30;
+
+    // ✅ Mới: trạng thái duyệt
+    public bool IsApproved { get; set; } = false;
 
     [NotMapped]
     public double RatingAvg { get; set; }

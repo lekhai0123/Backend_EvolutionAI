@@ -23,6 +23,7 @@ public class DishesController : ControllerBase
     public async Task<ActionResult<IEnumerable<Dish>>> GetAll()
     {
         var dishes = await _db.Dishes
+            .Where(d => d.IsApproved) // chỉ lấy món đã duyệt
             .Include(d => d.Ingredients)
             .Include(d => d.Steps.OrderBy(s => s.Order))
             .ToListAsync();
@@ -96,6 +97,7 @@ public class DishesController : ControllerBase
             CookingTime = dto.CookingTime,
             ImageUrl = imageUrl,
             CategoryId = dto.CategoryId,
+            IsApproved = false, // 🆕 chờ duyệt
             Ingredients = dto.Ingredients?
                 .Split('|', StringSplitOptions.RemoveEmptyEntries)
                 .Select(i => new Ingredient { Name = i.Trim() })
@@ -151,10 +153,13 @@ public class DishesController : ControllerBase
             .Include(d => d.Ingredients)
             .Include(d => d.Steps)
             .Include(d => d.Category)
+            .Where(d => d.IsApproved == true) // ✅ chỉ lấy món đã duyệt
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(q))
-            query = query.Where(d => d.Name.Contains(q) || (d.Description != null && d.Description.Contains(q)));
+            query = query.Where(d =>
+                d.Name.Contains(q) ||
+                (d.Description != null && d.Description.Contains(q)));
 
         if (categoryId.HasValue)
             query = query.Where(d => d.CategoryId == categoryId.Value);
@@ -184,6 +189,7 @@ public class DishesController : ControllerBase
             data = items
         };
     }
+
     // -------------------------------
     // UPLOAD ẢNH
     // -------------------------------
@@ -193,5 +199,56 @@ public class DishesController : ControllerBase
         if (file == null || file.Length == 0) return BadRequest("No file");
         var url = await cloud.UploadAsync(file);
         return Ok(new { imageUrl = url });
+    }
+    [Authorize(Roles = "admin")]
+    [HttpGet("pending")]
+    public async Task<ActionResult<IEnumerable<Dish>>> GetPending()
+    {
+        var pending = await _db.Dishes
+            .Where(d => !d.IsApproved)
+            .Include(d => d.Category)
+            .ToListAsync();
+        return Ok(pending);
+    }
+
+    [Authorize(Roles = "admin")]
+    [HttpPut("{id:int}/approve")]
+    public async Task<IActionResult> ApproveDish(int id)
+    {
+        var dish = await _db.Dishes.FindAsync(id);
+        if (dish == null) return NotFound("Không tìm thấy món ăn");
+        dish.IsApproved = true;
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Đã duyệt món ăn", dish.Id });
+    }
+
+    [Authorize(Roles = "admin")]
+    [HttpPut("{id:int}/reject")]
+    public async Task<IActionResult> RejectDish(int id)
+    {
+        var dish = await _db.Dishes.FindAsync(id);
+        if (dish == null) return NotFound("Không tìm thấy món ăn");
+        _db.Dishes.Remove(dish);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Đã xoá món ăn bị từ chối", dish.Id });
+    }
+    [Authorize(Roles = "admin")]
+    [HttpGet("admin")]
+    public async Task<IActionResult> GetAllForAdmin()
+    {
+        var dishes = await _db.Dishes
+            .Select(d => new {
+                d.Id,
+                d.Name,
+                d.Description,
+                d.ImageUrl,
+                d.CookingTime,
+                d.Difficulty,
+                d.IsApproved
+            })
+            .OrderByDescending(d => d.Id)
+            .ToListAsync();
+
+        return Ok(dishes);
     }
 }
